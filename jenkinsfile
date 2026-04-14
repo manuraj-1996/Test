@@ -1,0 +1,74 @@
+pipeline {
+    environment {
+        AWS_REGION = 'us-east-1'
+        ACCOUNT_ID = '772064137213'
+        ECR_REPO = 'devopsproject'
+        ECR_URL = "772064137213.dkr.ecr.us-east-1.amazonaws.com/devopsproject"
+        IMAGE_NAME = 'studentapp:latest'
+        // This will be populated in the first stage
+        APP_VERSION = "" 
+    }
+
+    agent any
+
+    stages {
+        stage('Checkout & Get Version') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/manuraj-1996/Test.git',
+                        credentialsId: 'Githubtoken'
+                    ]]
+                ])
+                
+                // Extract version from pom.xml using shell/awk
+                script {
+                    APP_VERSION = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
+                    echo "Extracted Version: ${APP_VERSION}"
+                }
+            }
+        }
+
+        stage('Build & Test') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                    docker build -t ${IMAGE_NAME} .
+                """
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
+                    sh '''
+                        aws ecr get-login-password --region $AWS_REGION | \
+                        docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    '''
+                }
+            }
+        }
+
+        stage('Tag & Push to ECR') {
+            steps {
+                sh """
+                    # Tag with specific version
+                    docker tag ${IMAGE_NAME} ${ECR_URL}:latest
+                    # Tag with latest (optional but recommended)
+                    docker push ${ECR_URL}:latest
+                    
+                    # Push both
+                    docker push ${ECR_URL}:${APP_VERSION}
+                    docker push ${ECR_URL}:latest
+                """
+            }
+        }
+    }
+}

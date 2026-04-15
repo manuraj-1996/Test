@@ -59,11 +59,11 @@ pipeline {
                 sh """
                     # 1. Tag local image to the ECR format
                     docker tag ${IMAGE_NAME}:${APP_VERSION} ${ECR_URL}:${APP_VERSION}
-                    docker tag ${IMAGE_NAME}:${APP_VERSION} ${ECR_URL}:latest
+                    
                     
                     # 2. Push both tags
                     docker push ${ECR_URL}:${APP_VERSION}
-                    docker push ${ECR_URL}:latest
+                    
                 """
             }
         }

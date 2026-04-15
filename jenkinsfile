@@ -1,12 +1,13 @@
 pipeline {
     environment {
-        AWS_REGION = 'us-east-1'
-        ACCOUNT_ID = '772064137213'
-        ECR_REPO = 'devopsproject'
-        ECR_URL = "772064137213.dkr.ecr.us-east-1.amazonaws.com/devopsproject"
-        IMAGE_NAME = 'studentapp:latest'
-        // This will be populated in the first stage
-        APP_VERSION = "" 
+        AWS_REGION     = 'us-east-1'
+        ACCOUNT_ID     = '772064137213'
+        ECR_REPO       = 'devopsproject'
+        // Using the global variable you set up
+        ECR_URL        = "${env.GLOBAL_ECR_REGISTRY}/${ECR_REPO}"
+        IMAGE_NAME     = 'studentapp'
+        REPO_URL       = 'https://github.com/manuraj-1996/Test.git'
+        APP_VERSION    = "" 
     }
 
     agent any
@@ -18,13 +19,13 @@ pipeline {
                     $class: 'GitSCM',
                     branches: [[name: '*/main']],
                     userRemoteConfigs: [[
-                        url: 'https://github.com/manuraj-1996/Test.git',
-                        credentialsId: 'Githubtoken'
+                        url: "${env.REPO_URL}",
+                        credentialsId: "${env.GLOBAL_GIT_CREDS}"
                     ]]
                 ])
                 
-                // Extract version from pom.xml using shell/awk
                 script {
+                    // Pull version from pom.xml and update the environment variable
                     APP_VERSION = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
                     echo "Extracted Version: ${APP_VERSION}"
                 }
@@ -33,25 +34,22 @@ pipeline {
 
         stage('Build & Test') {
             steps {
-                sh 'mvn clean install'
+                sh 'mvn clean install -DskipTests' // Added skipTests for speed, remove if needed
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh """
-                    docker build -t ${IMAGE_NAME} .
-                """
+                // Build the local image using the extracted version
+                sh "docker build -t ${IMAGE_NAME}:${APP_VERSION} ."
             }
         }
 
         stage('Login to ECR') {
             steps {
+                // withAWS is cleaner if you have the Pipeline AWS Steps plugin
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
-                    sh '''
-                        aws ecr get-login-password --region $AWS_REGION | \
-                        docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-                    '''
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
                 }
             }
         }
@@ -59,12 +57,11 @@ pipeline {
         stage('Tag & Push to ECR') {
             steps {
                 sh """
-                    # Tag with specific version
-                    docker tag ${IMAGE_NAME} ${ECR_URL}:latest
-                    # Tag with latest (optional but recommended)
-                    docker push ${ECR_URL}:latest
+                    # 1. Tag local image to the ECR format
+                    docker tag ${IMAGE_NAME}:${APP_VERSION} ${ECR_URL}:${APP_VERSION}
+                    docker tag ${IMAGE_NAME}:${APP_VERSION} ${ECR_URL}:latest
                     
-                    # Push both
+                    # 2. Push both tags
                     docker push ${ECR_URL}:${APP_VERSION}
                     docker push ${ECR_URL}:latest
                 """

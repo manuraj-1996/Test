@@ -20,7 +20,7 @@ pipeline {
 
         stage('Build Maven') {
             steps {
-                mavenbuild()
+                mvnbuild()
             }
         }
 

@@ -37,7 +37,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
                     script {
                         // Calling the shared library function
-                        awsHelpers(appVersion: env.APP_VERSION)
+                        ecrlogin(appVersion: env.APP_VERSION)
                     }
                 }
             }

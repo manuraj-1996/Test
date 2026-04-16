@@ -6,7 +6,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                standardcheckout()
+                git branch: 'main', 
+                    credentialsId: 'Githubtoken', 
+                    url: https://github.com/manuraj-1996/Test.git'
             }
         }
 
@@ -34,10 +36,10 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
                     script {
                         // Calling the shared library function
-                        ecrlogin(appVersion: env.APP_VERSION)
+                        awsHelpers(appVersion: env.APP_VERSION)
                     }
                 }
             }

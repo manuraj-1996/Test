@@ -3,7 +3,7 @@
 pipeline {
     agent any
     stages {
-        stage('Initialize') { steps { setupEnv() } }
+        stage('Initialize') { steps { projectconfig() } }
         stage('Checkout')    { steps { standardCheckout() } }
         stage('Build')       { steps { dockerBuild() } }
         stage('Login')       { steps { ecrLogin() } }

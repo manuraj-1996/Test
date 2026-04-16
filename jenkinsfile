@@ -1,65 +1,59 @@
 @Library('jenkins-shared-library') _
-
-// This calls vars/projectconfig.groovy from your library
-def config = projectconfig() 
+// Move config inside the pipeline or use it directly to avoid initialization issues
+def libraryConfig = projectconfig() 
 
 pipeline {
     agent any
+    
     environment {
-        // Use double quotes and curly braces for Groovy variables
-        REPO_URL         = "${config.repourl}"
-        GLOBAL_GIT_CREDS = "${config.credsid}"
-        APP_VERSION      = "" // Initialized here to be populated later
+        // Force these from the library config immediately
+        ECR_REGISTRY = "${libraryConfig.ecr_url}"
+        AWS_CREDS    = "${libraryConfig.aws_creds}"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // This calls vars/standardCheckout.groovy from your library
-                standardcheckout() 
+                standardcheckout()
             }
         }
 
-        
-    
-
-        stage('Build using maven') {
+        stage('Build Maven') {
             steps {
-                mvnbuild()
+                mavenbuild()
             }
         }
 
-stage('Extract Version') {
+        stage('Set Version') {
             steps {
                 script {
-                    // Pull version from pom.xml and update the env variable
-                    env.APP_VERSION = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
-                    echo "Extracted Version: ${env.APP_VERSION}"
+                    // We extract it and store it in the 'env' object specifically
+                    def version = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
+                    env.APP_TAG = version
+                    echo "Version captured: ${env.APP_TAG}"
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                // This calls the code from your Shared Library
-                dockerbuild() 
+                // Use the variables we just verified
+                sh "docker build -t ${env.ECR_REGISTRY}:${env.APP_TAG} ."
             }
         }
 
-        stage('Login to ECR') {
+        stage('Push to ECR') {
             steps {
-                // Just call the function from your library
-                ecrlogin() 
-                
-                // OR override defaults if needed:
-                // ecrlogin(region: 'us-west-2', credentialsid: 'prod-aws-keys')
-            }
-        }
-
-        stage('Tag & Push to ECR') {
-            steps {
-                // This one line replaces the entire block of shell commands
-                dockerpush()
+                // Manual login is much more reliable than the 'ecr' DSL when troubleshooting
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding', 
+                    credentialsId: "${env.AWS_CREDS}", 
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}"
+                    sh "docker push ${env.ECR_REGISTRY}:${env.APP_TAG}"
+                }
             }
         }
     }

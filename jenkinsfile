@@ -2,11 +2,52 @@
 
 pipeline {
     agent any
+
     stages {
-        stage('Initialize') { steps { projectconfig() } }
-        stage('Checkout')    { steps { standardcheckout() } }
-        stage('Build')       { steps { dockerbuild() } }
-        stage('Login')       { steps { ecrlogin() } }
-        stage('Push')        { steps { dockerpush() } }
+        stage('Checkout') {
+            steps {
+                standardcheckout()
+            }
+        }
+
+        stage('Build & Extract Version') {
+            steps {
+                sh 'mvn clean install -DskipTests'
+                script {
+                    env.APP_VERSION = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
+                }
+                echo "Detected Version: ${env.APP_VERSION}"
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t studentapp:${env.APP_VERSION} ."
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    script {
+                        // Calling the shared library function
+                        awsHelpers(appVersion: env.APP_VERSION)
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout || true'
+            sh "docker rmi studentapp:${env.APP_VERSION} || true"
+        }
     }
 }

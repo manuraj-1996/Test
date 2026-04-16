@@ -37,7 +37,6 @@ pipeline {
             }
         }
 
-        stages {
         stage('Build Docker Image') {
             steps {
                 // This calls the code from your Shared Library
@@ -46,7 +45,6 @@ pipeline {
         }
     }
 
-        stages {
         stage('Login to ECR') {
             steps {
                 // Just call the function from your library
@@ -58,7 +56,6 @@ pipeline {
         }
     }
 
-        stages {
         stage('Tag & Push to ECR') {
             steps {
                 // This one line replaces the entire block of shell commands

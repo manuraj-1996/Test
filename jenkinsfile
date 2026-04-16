@@ -16,7 +16,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 // This calls vars/standardCheckout.groovy from your library
-                standardCheckout() 
+                standardcheckout() 
             }
         }
 
@@ -40,24 +40,24 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 // This calls the code from your Shared Library
-                dockerBuild() 
+                dockerbuild() 
             }
         }
 
         stage('Login to ECR') {
             steps {
                 // Just call the function from your library
-                ecrLogin() 
+                ecrlogin() 
                 
                 // OR override defaults if needed:
-                // ecrLogin(region: 'us-west-2', credentialsId: 'prod-aws-keys')
+                // ecrlogin(region: 'us-west-2', credentialsid: 'prod-aws-keys')
             }
         }
 
         stage('Tag & Push to ECR') {
             steps {
                 // This one line replaces the entire block of shell commands
-                dockerPush()
+                dockerpush()
             }
         }
     }

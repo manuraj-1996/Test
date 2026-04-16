@@ -4,9 +4,9 @@ pipeline {
     agent any
     stages {
         stage('Initialize') { steps { projectconfig() } }
-        stage('Checkout')    { steps { standardCheckout() } }
-        stage('Build')       { steps { dockerBuild() } }
-        stage('Login')       { steps { ecrLogin() } }
-        stage('Push')        { steps { dockerPush() } }
+        stage('Checkout')    { steps { standardcheckout() } }
+        stage('Build')       { steps { dockerbuild() } }
+        stage('Login')       { steps { ecrlogin() } }
+        stage('Push')        { steps { dockerpush() } }
     }
 }

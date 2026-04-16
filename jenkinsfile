@@ -1,57 +1,12 @@
-@Library('jenkins-shared-library') _
-// 1. Initialize the config object at the very top
-def libraryConfig = projectconfig() 
+@Library('my-shared-lib') _
 
 pipeline {
     agent any
-    
     stages {
-        stage('Checkout') {
-            steps {
-                standardcheckout()
-            }
-        }
-
-        stage('Build Maven') {
-            steps {
-                mvnbuild() 
-            }
-        }
-
-        stage('Set Version') {
-            steps {
-                script {
-                    // 2. Capture the version globally
-                    env.APP_TAG = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
-                    // 3. Force the ECR and Credential info into the env object
-                    env.ECR_REGISTRY = libraryConfig.ecr_url
-                    env.AWS_CREDS    = libraryConfig.aws_creds
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                // Now env.ECR_REGISTRY won't be null
-                sh "docker build -t ${env.ECR_REGISTRY}:${env.APP_TAG} ."
-            }
-        }
-
-        stage('Push to ECR') {
-            steps {
-                script {
-                    // 4. Use the credentials ID we mapped in the 'Set Version' stage
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding', 
-                        credentialsId: "${env.AWS_CREDS}", 
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ]]) {
-                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}"
-                        sh "docker push ${env.ECR_REGISTRY}:${env.APP_TAG}"
-                    }
-                }
-            }
-        }
+        stage('Initialize') { steps { setupEnv() } }
+        stage('Checkout')    { steps { standardCheckout() } }
+        stage('Build')       { steps { dockerBuild() } }
+        stage('Login')       { steps { ecrLogin() } }
+        stage('Push')        { steps { dockerPush() } }
     }
 }

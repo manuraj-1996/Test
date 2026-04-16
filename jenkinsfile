@@ -43,7 +43,6 @@ pipeline {
                 dockerBuild() 
             }
         }
-    }
 
         stage('Login to ECR') {
             steps {
@@ -54,7 +53,6 @@ pipeline {
                 // ecrLogin(region: 'us-west-2', credentialsId: 'prod-aws-keys')
             }
         }
-    }
 
         stage('Tag & Push to ECR') {
             steps {
@@ -63,5 +61,4 @@ pipeline {
             }
         }
     }
-}
 }

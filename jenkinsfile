@@ -20,20 +20,22 @@ pipeline {
             }
         }
 
-        stage('Extract Version') {
+        
+    
+
+        stage('Build using maven') {
+            steps {
+                mvnbuild()
+            }
+        }
+
+stage('Extract Version') {
             steps {
                 script {
                     // Pull version from pom.xml and update the env variable
                     env.APP_VERSION = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
                     echo "Extracted Version: ${env.APP_VERSION}"
                 }
-            }
-        }
-    
-
-        stage('Build using maven') {
-            steps {
-                mvnbuild()
             }
         }
 
